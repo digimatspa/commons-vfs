@@ -33,7 +33,8 @@ import org.apache.commons.vfs2.provider.UriParser;
 import org.apache.commons.vfs2.util.RandomAccessMode;
 import org.apache.commons.vfs2.util.UserAuthenticatorUtils;
 
-import jcifs.smb.NtStatus;
+import jcifs.CIFSContext;
+import jcifs.context.SingletonContext;
 import jcifs.smb.NtlmPasswordAuthentication;
 import jcifs.smb.SmbException;
 import jcifs.smb.SmbFile;
@@ -77,31 +78,33 @@ public class SmbFileObject extends AbstractFileObject<SmbFileSystem> {
 
         UserAuthenticationData authData = null;
         SmbFile file;
+        CIFSContext context = SingletonContext.getInstance();
         try {
-            authData = UserAuthenticatorUtils.authenticate(getFileSystem().getFileSystemOptions(),
+        	authData = UserAuthenticatorUtils.authenticate(getFileSystem().getFileSystemOptions(),
                     SmbFileProvider.AUTHENTICATOR_TYPES);
 
-            NtlmPasswordAuthentication auth = null;
-            if (authData != null) {
-                auth = new NtlmPasswordAuthentication(
-                        UserAuthenticatorUtils.toString(UserAuthenticatorUtils.getData(authData,
-                                UserAuthenticationData.DOMAIN, UserAuthenticatorUtils.toChar(smbFileName.getDomain()))),
-                        UserAuthenticatorUtils
-                                .toString(UserAuthenticatorUtils.getData(authData, UserAuthenticationData.USERNAME,
-                                        UserAuthenticatorUtils.toChar(smbFileName.getUserName()))),
-                        UserAuthenticatorUtils
-                                .toString(UserAuthenticatorUtils.getData(authData, UserAuthenticationData.PASSWORD,
-                                        UserAuthenticatorUtils.toChar(smbFileName.getPassword()))));
-            }
-
-            // if auth == null SmbFile uses default credentials
-            // ("jcifs.smb.client.domain", "?"), ("jcifs.smb.client.username", "GUEST"),
-            // ("jcifs.smb.client.password", BLANK);
-            // ANONYMOUS=("","","")
-            file = new SmbFile(path, auth);
+            NtlmPasswordAuthentication auth = new NtlmPasswordAuthentication(context,
+                    UserAuthenticatorUtils.toString(
+                            UserAuthenticatorUtils.getData(
+                                    authData,
+                                    UserAuthenticationData.DOMAIN,
+                                    UserAuthenticatorUtils.toChar(smbFileName.getDomain()))),
+                    UserAuthenticatorUtils.toString(
+                            UserAuthenticatorUtils.getData(
+                                    authData,
+                                    UserAuthenticationData.USERNAME,
+                                    UserAuthenticatorUtils.toChar(smbFileName.getUserName()))),
+                    UserAuthenticatorUtils.toString(
+                            UserAuthenticatorUtils.getData(
+                                    authData,
+                                    UserAuthenticationData.PASSWORD,
+                                    UserAuthenticatorUtils.toChar(smbFileName.getPassword()))));
+            
+            context = context.withCredentials(auth);
+            file = new SmbFile(path, context);
 
             if (file.isDirectory() && !file.toString().endsWith("/")) {
-                file = new SmbFile(path + "/", auth);
+                file = new SmbFile(path + "/", context);
             }
             return file;
         } finally {
@@ -190,14 +193,13 @@ public class SmbFileObject extends AbstractFileObject<SmbFileSystem> {
      * Creates an input stream to read the file content from.
      */
     @Override
-    protected InputStream doGetInputStream(final int bufferSize) throws Exception {
+    protected InputStream doGetInputStream() throws Exception {
         try {
             return new SmbFileInputStream(file);
         } catch (final SmbException e) {
-            if (e.getNtStatus() == NtStatus.NT_STATUS_NO_SUCH_FILE) {
+            if (e.getNtStatus() == SmbException.NT_STATUS_NO_SUCH_FILE) {
                 throw new org.apache.commons.vfs2.FileNotFoundException(getName());
-            }
-            if (file.isDirectory()) {
+            } else if (file.isDirectory()) {
                 throw new FileTypeHasNoContentException(getName());
             }
 

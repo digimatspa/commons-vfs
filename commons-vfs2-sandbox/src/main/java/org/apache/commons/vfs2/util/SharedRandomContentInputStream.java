@@ -22,7 +22,7 @@ import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.mail.internet.SharedInputStream;
+import jakarta.mail.internet.SharedInputStream;
 
 import org.apache.commons.vfs2.Capability;
 import org.apache.commons.vfs2.FileObject;

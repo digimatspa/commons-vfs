@@ -29,12 +29,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import javax.mail.Address;
-import javax.mail.Header;
-import javax.mail.Message.RecipientType;
-import javax.mail.MessagingException;
-import javax.mail.Part;
-import javax.mail.internet.MimeMessage;
+import jakarta.mail.Address;
+import jakarta.mail.Header;
+import jakarta.mail.Message.RecipientType;
+import jakarta.mail.MessagingException;
+import jakarta.mail.Part;
+import jakarta.mail.internet.MimeMessage;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -126,7 +126,9 @@ public class MimeAttributesMap implements Map<String, Object> {
             try {
                 final Object value = method.invoke(part);
                 ret.put(OBJECT_PREFIX + name, value);
-            } catch (final IllegalAccessException | InvocationTargetException e) {
+            } catch (final IllegalAccessException e) {
+                log.debug(e.getLocalizedMessage(), e);
+            } catch (final InvocationTargetException e) {
                 log.debug(e.getLocalizedMessage(), e);
             }
         }
